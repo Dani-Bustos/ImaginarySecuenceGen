@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Explorador de Secuencia Compleja</title>
+<script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+<script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+<script id="MathJax-script" async
+  src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js">
+</script>
+<style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        background: #f0f4f8;
+        color: #333;
+        line-height: 1.6;
+        padding: 15px 10px;
+    }
+
+    h1 { text-align: center; margin-bottom: 25px; color: #2c3e50; font-size: 1.8rem; }
+
+    .container {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 20px;
+        width: 100%;
+        max-width: 1400px;
+        margin: 0 auto;
+    }
+
+    .controls {
+        flex: 0 0 300px;
+        background: #ffffff;
+        padding: 20px;
+        border-radius: 12px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        min-width: 280px;
+    }
+
+    .control { margin-bottom: 18px; }
+    .control label { font-weight: bold; display: block; margin-bottom: 6px; font-size: 0.95rem; }
+    .control input[type=range] { width: 100%; }
+    .control span { display: inline-block; margin-top: 5px; font-weight: bold; color: #2980b9; }
+
+    .explanation, .math, .question {
+        margin-top: 15px;
+        font-size: 0.9rem;
+        color: #555;
+    }
+
+    .math h3, .explanation h3 { font-size: 1rem; margin-bottom: 8px; color: #2c3e50; }
+    .question { font-weight: bold; color: #c0392b; font-size: 0.95rem; }
+
+    .plot-wrapper {
+        flex: 1 1 600px;
+        min-width: 300px;
+    }
+    .plot-container {
+        width: 100%;
+        height: 600px;
+        background: #fff;
+        border-radius: 12px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        padding: 10px;
+    }
+
+    @media (max-width: 900px) {
+        .container { flex-direction: column; align-items: center; }
+        .plot-container { height: 400px; }
+        .controls { width: 90%; padding: 15px; }
+        h1 { font-size: 1.5rem; }
+        .explanation, .math, .question { font-size: 0.88rem; }
+    }
+
+    @media (max-width: 500px) {
+        .plot-container { height: 300px; }
+        .control label { font-size: 0.85rem; }
+        .control span { font-size: 0.85rem; }
+    }
+</style>
+</head>
+<body>
+
+<h1>Explorador de Secuencia Compleja</h1>
+
+<div class="container">
+    <div class="controls">
+        <div class="control">
+            <label for="re-step">Parte real del paso :</label>
+            <input type="range" id="re-step" min="-2" max="2" step="0.01" value="0">
+            <span id="re-value">0</span>
+        </div>
+
+        <div class="control">
+            <label for="im-step">Parte imaginaria del paso :</label>
+            <input type="range" id="im-step" min="-2" max="2" step="0.01" value="1">
+            <span id="im-value">1</span>
+        </div>
+
+        <div class="explanation">
+            <h3>Explicación:</h3>
+            <p>
+                Se visualizan las primeras 50 instancias de una secuencia de números complejos.
+                El gráfico muestra los puntos en el plano complejo (parte real eje X, imaginaria eje Y), conectados por líneas grises para seguir la trayectoria.
+            </p>
+            <p>
+                Los colores de los puntos indican el paso de iteración: el inicio es oscuro → el final es claro.
+            </p>
+        </div>
+
+        <div class="math">
+            <h3>Definición Matemática:</h3>
+            <p>
+            La secuencia \((z_n)_{n\ge 0}\) está definida como:
+            </p>
+            <p>
+            \[
+            \begin{cases}
+            z_0 = 1 + 0i, \\
+            z_{n+1} = z_n \cdot s, \quad n \ge 0
+            \end{cases}
+            \]
+            </p>
+            <p>
+            donde \(s = \text{Re}(s) + i\,\text{Im}(s)\) es el "paso " elegido con los sliders.  
+            Equivalente a:
+            \[
+            z_n = z_0 \cdot s^n
+            \]
+            </p>
+        </div>
+
+        <div class="question">
+            Para pensar: ¿Para qué valores la secuencia se "aleja del 0"? ¿Y cuándo se queda estable?
+        </div>
+    </div>
+
+    <div class="plot-wrapper">
+        <div id="plot" class="plot-container"></div>
+    </div>
+</div>
+
+<script>
+class Complex {
+    constructor(re, im) {
+        this.re = re;
+        this.im = im;
+    }
+    multiply(other) {
+        return new Complex(
+            this.re*other.re - this.im*other.im,
+            this.re*other.im + this.im*other.re
+        );
+    }
+    norm() {
+        return Math.sqrt(this.re*this.re + this.im*this.im);
+    }
+}
+
+function generateSequence(step, start, maxIter) {
+    let seq = [start];
+    for (let i=0; i<maxIter; i++) {
+        seq.push(seq[seq.length-1].multiply(step));
+    }
+    return seq;
+}
+
+function updatePlot() {
+    const re = parseFloat(document.getElementById("re-step").value);
+    const im = parseFloat(document.getElementById("im-step").value);
+    document.getElementById("re-value").innerText = re.toFixed(2);
+    document.getElementById("im-value").innerText = im.toFixed(2);
+
+    const step = new Complex(re, im);
+    const seq = generateSequence(step, new Complex(1,0), 50);
+
+    const x = seq.map(z => z.re);
+    const y = seq.map(z => z.im);
+    const colors = Array.from({length: seq.length}, (_,i) => i);
+
+    const trace = {
+        x: x,
+        y: y,
+        mode: 'markers+lines',
+        marker: {
+            color: colors,
+            colorscale: 'Viridis',
+            size: 10,
+            showscale: true,
+            colorbar: {title: 'Paso'}
+        },
+        line: {color: 'gray', width: 2}
+    };
+
+    const layout = {
+        title: `Secuencia Compleja (Paso  = ${re.toFixed(2)} + ${im.toFixed(2)}i)`,
+        xaxis: {title: 'Parte Real', zeroline: true},
+        yaxis: {title: 'Parte Imaginaria', zeroline: true},
+        margin: {l:50,r:50,t:70,b:50},
+        autosize: true,
+    };
+
+    Plotly.newPlot('plot', [trace], layout, {responsive: true});
+}
+
+document.getElementById("re-step").addEventListener("input", updatePlot);
+document.getElementById("im-step").addEventListener("input", updatePlot);
+
+updatePlot();
+</script>
+
+</body>
+</html>
+
